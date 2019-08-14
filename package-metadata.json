@@ -1,0 +1,1 @@
+{"dependencies": [], "description": "Generates powershell help template for the the selected method name", "url": "https://github.com/sponte/sublime_powershell_help", "platforms": ["*"], "version": "2013.10.15.14.08.51", "sublime_text": "*"}
