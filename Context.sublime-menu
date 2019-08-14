@@ -1,8 +1,14 @@
 [
-	{ "caption": "Open Bash here", "command": "openbash" },
-	{ "caption": "Open CMD here", "command": "opencmd" },
-	{ "caption": "Open PS here", "command": "openpowershell" },
 	{ "caption": "Run Python (Bash)", "command": "runpythonbash" },
 	{ "caption": "Run Python (Win)", "command": "runpythonwin" },
-	{ "caption": "Run PowerShell", "command": "runpowershell" }
+	{ "caption": "Run PowerShell", "command": "runpowershell" },
+	{
+		"caption": "Open Terminal",
+		"mnemonic": "N",
+		"children": [
+			{ "caption": "Bash", "command": "openbash" },
+			{ "caption": "Command Prompt", "command": "opencmd" },
+			{ "caption": "PowerShell", "command": "openpowershell" }
+		]
+	}
 ]
