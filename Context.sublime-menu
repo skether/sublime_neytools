@@ -1,14 +1,15 @@
 [
-	{ "caption": "Run Python (Bash)", "command": "runpythonbash" },
-	{ "caption": "Run Python (Win)", "command": "runpythonwin" },
-	{ "caption": "Run PowerShell", "command": "runpowershell" },
+	{ "caption": "[NTDev] Trigger", "command": "ney_tools_debug_trigger"},
+	{ "caption": "Run Python (Bash)", "command": "run_python_bash" },
+	{ "caption": "Run Python (Win)", "command": "run_python_win" },
+	{ "caption": "Run PowerShell", "command": "run_power_shell" },
 	{
 		"caption": "Open Terminal",
 		"mnemonic": "T",
 		"children": [
-			{ "caption": "Bash", "command": "openbash" },
-			{ "caption": "Command Prompt", "command": "opencmd" },
-			{ "caption": "PowerShell", "command": "openpowershell" }
+			{ "caption": "Bash", "command": "open_bash" },
+			{ "caption": "Command Prompt", "command": "open_cmd" },
+			{ "caption": "PowerShell", "command": "open_power_shell" }
 		]
 	}
 ]
