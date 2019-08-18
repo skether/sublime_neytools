@@ -4,7 +4,7 @@
 	{ "caption": "Run PowerShell", "command": "runpowershell" },
 	{
 		"caption": "Open Terminal",
-		"mnemonic": "N",
+		"mnemonic": "T",
 		"children": [
 			{ "caption": "Bash", "command": "openbash" },
 			{ "caption": "Command Prompt", "command": "opencmd" },
