@@ -7,9 +7,9 @@
 		"caption": "Open Terminal",
 		"mnemonic": "T",
 		"children": [
-			{ "caption": "Bash", "command": "open_bash" },
-			{ "caption": "Command Prompt", "command": "open_cmd" },
-			{ "caption": "PowerShell", "command": "open_power_shell" }
+			{ "caption": "Bash", "mnemonic": "B", "command": "open_bash" },
+			{ "caption": "Command Prompt", "mnemonic": "C", "command": "open_cmd" },
+			{ "caption": "PowerShell", "mnemonic": "P", "command": "open_power_shell" }
 		]
 	}
 ]
