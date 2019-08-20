@@ -15,7 +15,8 @@ NT_PSAVAILABLE = False
 #Settings
 NT_SETTINGS = None
 NT_PYTHON_BASH = False
- 
+
+#Loading Settings
 def plugin_loaded():
 	global NT_BASHAVAILABLE, NT_CMDAVAILABLE, NT_PSAVAILABLE, NT_SETTINGS, NT_PYTHON_BASH
 	NT_BASHAVAILABLE = which('bash') is not None
@@ -25,8 +26,8 @@ def plugin_loaded():
 	NT_PYTHON_BASH = NT_SETTINGS.get('python_use_bash', False) and NT_BASHAVAILABLE
 
 #Base Class
-class NTBase(sublime_plugin.TextCommand):
-	"""The base of all NeyTools commands."""
+class _NT_Base(sublime_plugin.TextCommand):
+	"""The base of all NeyTools Text commands."""
 
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
@@ -59,7 +60,7 @@ class NTBase(sublime_plugin.TextCommand):
 
 
 #For Development Purposes
-class NeyToolsDebugTriggerCommand(NTBase):
+class NeyToolsDebugTriggerCommand(_NT_Base):
 	"""Used for triggering the base class, while in developement."""
 
 	def run(self, edit):
@@ -74,6 +75,7 @@ class NeyToolsDebugTriggerCommand(NTBase):
 
 
 #SETTING COMMANDS
+
 class NeyToolsSettingPythonEnvironmentCommand(sublime_plugin.ApplicationCommand):
 	"""Used for selecting the Python environment."""
 
@@ -93,8 +95,8 @@ class NeyToolsSettingPythonEnvironmentCommand(sublime_plugin.ApplicationCommand)
 
 
 #COMMANDS
-#Run Command
-class NeyToolsRunCommand(NTBase):
+
+class NeyToolsRunCommand(_NT_Base):
 	"""Used for intelligenly running the current document."""
 
 	def __init__(self, *args, **kwargs):
@@ -127,7 +129,7 @@ class NeyToolsRunCommand(NTBase):
 		return self.view.settings().get('syntax') in self._syntaxHandlers
 
 #Windows Tools (Windows Command Prompt)
-class NTCMDBase(NTBase):
+class _NT_CMD_Base(_NT_Base):
 	"""The base of all Windows Command Prompt commands."""
 
 	def is_visible(self):
@@ -136,7 +138,7 @@ class NTCMDBase(NTBase):
 	def is_enabled(self):
 		return NT_CMDAVAILABLE
 
-class OpenCmdCommand(NTCMDBase):
+class NeyToolsOpenCmdCommand(_NT_CMD_Base):
 	"""Opens a new Windows Command Prompt in the current directory."""
 
 	def run(self, edit):
@@ -144,7 +146,7 @@ class OpenCmdCommand(NTCMDBase):
 
 
 #Windows Tools (PowerShell)
-class NTPSBase(NTBase):
+class _NT_PS_Base(_NT_Base):
 	"""The base of all Windows PowerShell commands."""
 
 	def is_visible(self):
@@ -153,7 +155,7 @@ class NTPSBase(NTBase):
 	def is_enabled(self):
 		return NT_PSAVAILABLE
 
-class OpenPowerShellCommand(NTPSBase):
+class NeyToolsOpenPowerShellCommand(_NT_PS_Base):
 	"""Opens a new PowerShell terminal in the current directory."""
 
 	def run(self, edit):
@@ -161,7 +163,7 @@ class OpenPowerShellCommand(NTPSBase):
 
 
 #Linux Tools (Bash - Windows Subsystem for Linux)
-class NTBashBase(NTBase):
+class _NT_Bash_Base(_NT_Base):
 	"""The base of all Bash commands."""
 
 	def is_visible(self):
@@ -170,7 +172,7 @@ class NTBashBase(NTBase):
 	def is_enabled(self):
 		return NT_BASHAVAILABLE
 
-class OpenBashCommand(NTBashBase):
+class NeyToolsOpenBashCommand(_NT_Bash_Base):
 	"""Opens a new Bash terminal in the current directory."""
 
 	def run(self, edit):

@@ -1,6 +1,6 @@
 [
-	{ "caption": "Open Bash in this folder", "command": "open_bash" },
-	{ "caption": "Open CMD in this folder", "command": "open_cmd" },
-	{ "caption": "Open PS in this folder", "command": "open_power_shell" },
-	{ "caption": "Run the current script", "command": "ney_tools_run"}
+	{ "caption": "NeyTools: Open Bash in this folder", "command": "ney_tools_open_bash" },
+	{ "caption": "NeyTools: Open CMD in this folder", "command": "ney_tools_open_cmd" },
+	{ "caption": "NeyTools: Open PS in this folder", "command": "ney_tools_open_power_shell" },
+	{ "caption": "NeyTools: Run the current script", "command": "ney_tools_run"}
 ]

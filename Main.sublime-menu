@@ -2,15 +2,15 @@
 	{
 		"id": "preferences",
 		"children": [
-			{"caption": "-", "id": "neytools"},
+			{ "caption": "-", "id": "neytools" },
 			{
 				"caption": "NeyTools",
 				"children": [
 					{
 						"caption": "Python",
 						"children": [
-							{"caption": "Bash", "command": "ney_tools_setting_python_environment", "args": {"env": true}},
-							{"caption": "Windows", "command": "ney_tools_setting_python_environment", "args": {"env": false}}
+							{ "caption": "Bash", "command": "ney_tools_setting_python_environment", "args": {"env": true} },
+							{ "caption": "Windows", "command": "ney_tools_setting_python_environment", "args": {"env": false} }
 						]
 					}
 				]
