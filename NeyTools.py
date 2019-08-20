@@ -1,3 +1,4 @@
+import sublime
 import sublime_plugin
 import os
 from shutil import which
@@ -10,12 +11,18 @@ NT_DEVMODE = True
 NT_BASHAVAILABLE = False
 NT_CMDAVAILABLE = False
 NT_PSAVAILABLE = False
+
+#Settings
+NT_SETTINGS = None
+NT_PYTHON_BASH = False
  
 def plugin_loaded():
-	global NT_BASHAVAILABLE, NT_CMDAVAILABLE, NT_PSAVAILABLE
+	global NT_BASHAVAILABLE, NT_CMDAVAILABLE, NT_PSAVAILABLE, NT_SETTINGS, NT_PYTHON_BASH
 	NT_BASHAVAILABLE = which('bash') is not None
 	NT_CMDAVAILABLE = which('cmd') is not None
 	NT_PSAVAILABLE = which('powershell') is not None
+	NT_SETTINGS = sublime.load_settings('NeyTools.sublime-settings')
+	NT_PYTHON_BASH = NT_SETTINGS.get('python_use_bash', False) and NT_BASHAVAILABLE
 
 #Base Class
 class NTBase(sublime_plugin.TextCommand):
@@ -56,9 +63,7 @@ class NeyToolsDebugTriggerCommand(NTBase):
 	"""Used for triggering the base class, while in developement."""
 
 	def run(self, edit):
-		print(NT_BASHAVAILABLE)
-		print(NT_CMDAVAILABLE)
-		print(NT_PSAVAILABLE)
+		print(NT_PYTHON_BASH)
 		self.execute('exit')
 
 	def is_visible(self):
@@ -68,6 +73,26 @@ class NeyToolsDebugTriggerCommand(NTBase):
 		return NT_DEVMODE
 
 
+#SETTING COMMANDS
+class NeyToolsSettingPythonEnvironmentCommand(sublime_plugin.ApplicationCommand):
+	"""Used for selecting the Python environment."""
+
+	def run(self, env):
+		global NT_PYTHON_BASH
+		NT_PYTHON_BASH = env
+		NT_SETTINGS.set('python_use_bash', NT_PYTHON_BASH)
+
+	def is_visible(self, env):
+		return NT_BASHAVAILABLE or not env
+
+	def is_enabled(self, env):
+		return NT_BASHAVAILABLE or not env
+
+	def is_checked(self, env):
+		return NT_PYTHON_BASH == env
+
+
+#COMMANDS
 #Windows Tools (Windows Command Prompt)
 class NTCMDBase(NTBase):
 	"""The base of all Windows Command Prompt commands."""
