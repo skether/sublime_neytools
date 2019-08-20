@@ -1,8 +1,6 @@
 [
-	{ "caption": "Open Bash in this folder", "command": "openbash" },
-	{ "caption": "Open CMD in this folder", "command": "opencmd" },
-	{ "caption": "Open PS in this folder", "command": "openpowershell" },
-	{ "caption": "Run Python (Bash)", "command": "runpythonbash" },
-	{ "caption": "Run Python (Win)", "command": "runpythonwin" },
-	{ "caption": "Run PowerShell", "command": "runpowershell" }
+	{ "caption": "NeyTools: Open Bash in this folder", "command": "ney_tools_open_bash" },
+	{ "caption": "NeyTools: Open CMD in this folder", "command": "ney_tools_open_cmd" },
+	{ "caption": "NeyTools: Open PS in this folder", "command": "ney_tools_open_power_shell" },
+	{ "caption": "NeyTools: Run the current script", "command": "ney_tools_run"}
 ]
