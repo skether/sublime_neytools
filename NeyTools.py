@@ -5,7 +5,7 @@ from shutil import which
 
 #For Development Purposes
 #Used to enable logging and development tools
-NT_DEVMODE = True
+NT_DEVMODE = False
 
 #Used for disabling options when they are not available
 NT_BASHAVAILABLE = False
