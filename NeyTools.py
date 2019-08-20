@@ -63,7 +63,7 @@ class NeyToolsDebugTriggerCommand(NTBase):
 	"""Used for triggering the base class, while in developement."""
 
 	def run(self, edit):
-		print(NT_PYTHON_BASH)
+		print(self.view.settings().get('syntax'))
 		self.execute('exit')
 
 	def is_visible(self):
@@ -93,6 +93,39 @@ class NeyToolsSettingPythonEnvironmentCommand(sublime_plugin.ApplicationCommand)
 
 
 #COMMANDS
+#Run Command
+class NeyToolsRunCommand(NTBase):
+	"""Used for intelligenly running the current document."""
+
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, **kwargs)
+		self._syntaxHandlers = {}
+		self._syntaxHandlers['Packages/Python/Python.sublime-syntax'] = self.hPython
+		self._syntaxHandlers['Packages/PowerShell/Support/PowershellSyntax.tmLanguage'] = self.hPowerShell
+
+	def run(self, edit):
+		syntax = self.view.settings().get('syntax')
+		handler = self._syntaxHandlers.get(syntax, None)
+		if handler:
+			handler()
+		else:
+			print("Handler for this systax is not available!", syntax)
+
+	def hPython(self):
+		if NT_PYTHON_BASH:
+			self.executeFromHere('start bash -c "python3 {file};echo \\\"---------------------\\\";read -n 1 -s -r -p \\\"Press any key to continue...\\\"\"')
+		else:
+			self.executeFromHere('start cmd /K "python3 {file} & pause & exit"')
+
+	def hPowerShell(self):
+		self.executeFromHere('start cmd /K "powershell ./{file} & pause & exit"')
+
+	def is_visible(self):
+		return self.view.settings().get('syntax') in self._syntaxHandlers
+
+	def is_enabled(self):
+		return self.view.settings().get('syntax') in self._syntaxHandlers
+
 #Windows Tools (Windows Command Prompt)
 class NTCMDBase(NTBase):
 	"""The base of all Windows Command Prompt commands."""
@@ -108,12 +141,6 @@ class OpenCmdCommand(NTCMDBase):
 
 	def run(self, edit):
 		self.executeFromHere('start cmd')
-
-class RunPythonWinCommand(NTCMDBase):
-	"""Runs the current python document, using the currently installed windows version of python3."""
-
-	def run(self, edit):
-		self.executeFromHere('start cmd /K "python3 {file} & pause & exit"')
 
 
 #Windows Tools (PowerShell)
@@ -132,12 +159,6 @@ class OpenPowerShellCommand(NTPSBase):
 	def run(self, edit):
 		self.executeFromHere('start powershell')
 
-class RunPowerShellCommand(NTPSBase):
-	"""Runs the current PowerShell document."""
-
-	def run(self, edit):
-		self.executeFromHere('start cmd /K "powershell ./{file} & pause & exit"')
-
 
 #Linux Tools (Bash - Windows Subsystem for Linux)
 class NTBashBase(NTBase):
@@ -154,10 +175,3 @@ class OpenBashCommand(NTBashBase):
 
 	def run(self, edit):
 		self.executeFromHere('start bash')
-
-class RunPythonBashCommand(NTBashBase):
-	"""Runs the current python document, using the currently installed linux version of python3."""
-
-	def run(self, edit):
-		self.executeFromHere('start bash -c "python3 {file};echo \\\"---------------------\\\";read -n 1 -s -r -p \\\"Press any key to continue...\\\"\"')
-

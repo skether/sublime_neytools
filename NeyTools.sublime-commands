@@ -2,7 +2,5 @@
 	{ "caption": "Open Bash in this folder", "command": "open_bash" },
 	{ "caption": "Open CMD in this folder", "command": "open_cmd" },
 	{ "caption": "Open PS in this folder", "command": "open_power_shell" },
-	{ "caption": "Run Python (Bash)", "command": "run_python_bash" },
-	{ "caption": "Run Python (Win)", "command": "run_python_win" },
-	{ "caption": "Run PowerShell", "command": "run_power_shell" }
+	{ "caption": "Run the current script", "command": "ney_tools_run"}
 ]
