@@ -31,12 +31,14 @@ class _NT_Base(sublime_plugin.TextCommand):
 
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
-		self._getPathComponents()
 
 	def execute(self, command=None):
 		#If the current document is dirty then save it.
 		if self.view.is_dirty():
 			self.view.run_command('save')
+
+		#Refresh the path
+		self._getPathComponents()
 
 		if command:
 			self.command = command
