@@ -1,6 +1,7 @@
 import sublime
 import sublime_plugin
 import os
+from pathlib import Path
 from shutil import which
 
 #For Development Purposes
@@ -25,40 +26,62 @@ def plugin_loaded():
 	NT_SETTINGS = sublime.load_settings('NeyTools.sublime-settings')
 	NT_PYTHON_BASH = NT_SETTINGS.get('python_use_bash', False) and NT_BASHAVAILABLE
 
-#Base Class
+class FormatDict(dict):
+	def __init__(self, *args, command_instance, **kwargs):
+		super().__init__(*args, **kwargs)
+		self.command_instance = command_instance
+		self.proxies = {
+			"filename": lambda: self.command_instance.filepath.name,
+			"filepath": lambda: self.command_instance.filepath,
+			"drive": lambda: self.command_instance.filepath.drive,
+			"directory": lambda: self.command_instance.filepath.parent,
+		}
+
+	def __getitem__(self, key):
+		if key in self.proxies:
+			return self.proxies[key]()
+		else:
+			try:
+				return super().__getitem__(key)
+			except KeyError:
+				command_instance_vars = vars(self.command_instance)
+				if key in command_instance_vars:
+					return command_instance_vars[key]
+				raise e
+			
+
+
+#Base Class for TextCommands
 class _NT_Base(sublime_plugin.TextCommand):
 	"""The base of all NeyTools Text commands."""
 
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
+		self.format_dict = FormatDict(command_instance=self)
+		self._refresh_path_components()
 
-	def execute(self, command=None):
+	def execute(self, command):
 		#If the current document is dirty then save it.
 		if self.view.is_dirty():
 			self.view.run_command('save')
 
 		#Refresh the path
-		self._getPathComponents()
+		self._refresh_path_components()
 
-		if command:
-			self.command = command
+		os.system(self._formatCommand(command))
 
-		os.system(self._formatCommand(self.command))
+	def executeFrom(self, command, path):
+		command = path.drive + ' & cd "' + str(path) + '" & ' + command
+		self.execute(command)
 
-	def executeFromHere(self, command=None):
-		if command:
-			self.command = command
-		self.command = '{drive} & cd "{directory}" & ' + self.command
-		self.execute()
+	def executeFromHere(self, command):
+		self.executeFrom(command, self.filepath.parent)
 
-	def _getPathComponents(self):
-		self.path = self.view.file_name()
-		self.drive = os.path.splitdrive(self.path)[0]
-		self.directory = os.path.dirname(self.path)
-		self.file = os.path.basename(self.path)
+	def _refresh_path_components(self):
+		self.filepath = Path(self.view.file_name())
 
 	def _formatCommand(self, command):
-		return command.format_map(self.__dict__)
+		return command.format_map(self.format_dict)
 
 
 #For Development Purposes
@@ -66,7 +89,7 @@ class NeyToolsDebugTriggerCommand(_NT_Base):
 	"""Used for triggering the base class, while in developement."""
 
 	def run(self, edit):
-		print(self.view.settings().get('syntax'))
+		print('NeyTools Debug')
 		self.execute('exit')
 
 	def is_visible(self):
@@ -77,7 +100,6 @@ class NeyToolsDebugTriggerCommand(_NT_Base):
 
 
 #SETTING COMMANDS
-
 class NeyToolsSettingPythonEnvironmentCommand(sublime_plugin.ApplicationCommand):
 	"""Used for selecting the Python environment."""
 
@@ -97,7 +119,6 @@ class NeyToolsSettingPythonEnvironmentCommand(sublime_plugin.ApplicationCommand)
 
 
 #COMMANDS
-
 class NeyToolsRunCommand(_NT_Base):
 	"""Used for intelligenly running the current document."""
 
@@ -117,12 +138,12 @@ class NeyToolsRunCommand(_NT_Base):
 
 	def hPython(self):
 		if NT_PYTHON_BASH:
-			self.executeFromHere('start bash -c "python3 {file};echo \\\"---------------------\\\";read -n 1 -s -r -p \\\"Press any key to continue...\\\"\"')
+			self.executeFromHere('start bash -c "python3 {filename};echo \\\"---------------------\\\";read -n 1 -s -r -p \\\"Press any key to continue...\\\"\"')
 		else:
-			self.executeFromHere('start cmd /K "python3 {file} & pause & exit"')
+			self.executeFromHere('start cmd /K "python3 {filename} & pause & exit"')
 
 	def hPowerShell(self):
-		self.executeFromHere('start cmd /K "powershell ./{file} & pause & exit"')
+		self.executeFromHere('start cmd /K "powershell ./{filename} & pause & exit"')
 
 	def is_visible(self):
 		return self.view.settings().get('syntax') in self._syntaxHandlers
