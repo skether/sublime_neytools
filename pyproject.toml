@@ -1,0 +1,12 @@
+[tool.black]
+line-length = 300
+
+[tool.flakeheaven]
+max_line_length = 300
+exclude = ["__pycache__", ".venv", "docs"]
+# E203: Whitespace before ':'
+ignore = "E203"
+extended_default_ignore=[]
+
+[tool.flakeheaven.plugins]
+"*" = ["+*"]
