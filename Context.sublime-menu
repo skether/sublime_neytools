@@ -1,5 +1,6 @@
 [
 	{ "caption": "[NTDev] Trigger", "command": "ney_tools_debug_trigger"},
+	{ "caption": "Run Poetry Project", "command": "ney_tools_run_poetry"},
 	{ "caption": "Run", "command": "ney_tools_run"},
 	{
 		"caption": "Open Terminal",
