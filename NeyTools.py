@@ -57,7 +57,7 @@ class FormatDict(dict):
 
 
 # Base Class for TextCommands
-class _NTBase(sublime_plugin.TextCommand):
+class _NT_CommandBase(sublime_plugin.TextCommand):
     """The base of all NeyTools Text commands."""
 
     def __init__(self, *args, **kwargs):
@@ -82,15 +82,19 @@ class _NTBase(sublime_plugin.TextCommand):
     def execute_from_here(self, command):
         self.execute_from(command, self.filepath.parent)
 
+    def is_ready(self):
+        return not not self.filepath
+
     def _refresh_path_components(self):
-        self.filepath = Path(self.view.file_name())
+        file_name = self.view.file_name()
+        self.filepath = Path(file_name) if file_name else None
 
     def _format_command(self, command):
         return command.format_map(self.format_dict)
 
 
 # For Development Purposes
-class NeyToolsDebugTriggerCommand(_NTBase):
+class NeyToolsDebugTriggerCommand(_NT_CommandBase):
     """Used for triggering the base class, while in developement."""
 
     def run(self, edit):
@@ -124,7 +128,7 @@ class NeyToolsSettingPythonEnvironmentCommand(sublime_plugin.ApplicationCommand)
 
 
 # COMMANDS
-class NeyToolsRunCommand(_NTBase):
+class NeyToolsRunCommand(_NT_CommandBase):
     """Used for intelligenly running the current document."""
 
     def __init__(self, *args, **kwargs):
@@ -151,13 +155,13 @@ class NeyToolsRunCommand(_NTBase):
         self.execute_from_here('start cmd /K "powershell ./{filename} & pause & exit"')
 
     def is_visible(self):
-        return self.view.settings().get("syntax") in self._syntaxHandlers
+        return self.view.settings().get("syntax") in self._syntaxHandlers and self.is_ready()
 
     def is_enabled(self):
-        return self.view.settings().get("syntax") in self._syntaxHandlers
+        return self.view.settings().get("syntax") in self._syntaxHandlers and self.is_ready()
 
 
-class NeyToolsRunPoetryCommand(_NTBase):
+class NeyToolsRunPoetryCommand(_NT_CommandBase):
     """Used for running the current Poetry Project"""
 
     def __init__(self, *args, **kwargs):
@@ -175,8 +179,11 @@ class NeyToolsRunPoetryCommand(_NTBase):
                 self.execute_from('start cmd /K "python3 -m poetry run python -m {poetry_project_name} & pause & exit"', self.poetry_base_dir)
 
     def _refresh_poetry(self):
+        if not self.filepath:
+            return
+
         # Currently open file's path
-        current_file_name = Path(self.view.file_name()).absolute()
+        current_file_name = self.filepath.absolute()
 
         # Get currently open folders in this window
         open_folders = [Path(p).absolute() for p in self.view.window().folders()]
@@ -215,21 +222,21 @@ class NeyToolsRunPoetryCommand(_NTBase):
                 print(e)
 
     def is_visible(self):
-        return (self.poetry_base_dir is not None) and (self.poetry_project_name is not None)
+        return self.is_ready() and (self.poetry_base_dir is not None) and (self.poetry_project_name is not None)
 
     def is_enabled(self):
-        return (self.poetry_base_dir is not None) and (self.poetry_project_name is not None)
+        return self.is_ready() and (self.poetry_base_dir is not None) and (self.poetry_project_name is not None)
 
 
 # Windows Tools (Windows Command Prompt)
-class _NTWindowsCommandPromptBase(_NTBase):
+class _NTWindowsCommandPromptBase(_NT_CommandBase):
     """The base of all Windows Command Prompt commands."""
 
     def is_visible(self):
         return NT_CMDAVAILABLE
 
     def is_enabled(self):
-        return NT_CMDAVAILABLE
+        return NT_CMDAVAILABLE and self.is_ready()
 
 
 class NeyToolsOpenCmdCommand(_NTWindowsCommandPromptBase):
@@ -240,14 +247,14 @@ class NeyToolsOpenCmdCommand(_NTWindowsCommandPromptBase):
 
 
 # Windows Tools (PowerShell)
-class _NTPowerShellBase(_NTBase):
+class _NTPowerShellBase(_NT_CommandBase):
     """The base of all Windows PowerShell commands."""
 
     def is_visible(self):
         return NT_PSAVAILABLE
 
     def is_enabled(self):
-        return NT_PSAVAILABLE
+        return NT_PSAVAILABLE and self.is_ready()
 
 
 class NeyToolsOpenPowerShellCommand(_NTPowerShellBase):
@@ -258,14 +265,14 @@ class NeyToolsOpenPowerShellCommand(_NTPowerShellBase):
 
 
 # Linux Tools (Bash - Windows Subsystem for Linux)
-class _NTBashBase(_NTBase):
+class _NTBashBase(_NT_CommandBase):
     """The base of all Bash commands."""
 
     def is_visible(self):
         return NT_BASHAVAILABLE
 
     def is_enabled(self):
-        return NT_BASHAVAILABLE
+        return NT_BASHAVAILABLE and self.is_ready()
 
 
 class NeyToolsOpenBashCommand(_NTBashBase):
