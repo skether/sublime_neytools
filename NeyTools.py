@@ -8,9 +8,16 @@ import sublime_plugin
 
 import toml
 
+
 # For Development Purposes
 # Used to enable logging and development tools
 NT_DEVMODE = False
+package_git_head = Path(sublime.packages_path(), "sublime_neytools/.git/HEAD")
+if package_git_head.exists():
+    with package_git_head.open("rt") as head:
+        if head.read().strip() != "ref: refs/heads/main":
+            NT_DEVMODE = True
+
 
 # Used for disabling options when they are not available
 NT_BASHAVAILABLE = False
