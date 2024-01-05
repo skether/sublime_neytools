@@ -121,3 +121,5 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+.flakeheaven_cache
+*.sublime-workspace
