@@ -19,24 +19,33 @@ if package_git_head.exists():
             NT_DEVMODE = True
 
 
-# Used for disabling options when they are not available
-NT_BASHAVAILABLE = False
-NT_CMDAVAILABLE = False
-NT_PSAVAILABLE = False
-
-# Settings
-NT_SETTINGS = None
-NT_PYTHON_BASH = False
-
-
 # Loading Settings
 def plugin_loaded():
-    global NT_BASHAVAILABLE, NT_CMDAVAILABLE, NT_PSAVAILABLE, NT_SETTINGS, NT_PYTHON_BASH
-    NT_BASHAVAILABLE = which("bash") is not None
-    NT_CMDAVAILABLE = which("cmd") is not None
-    NT_PSAVAILABLE = which("powershell") is not None
-    NT_SETTINGS = sublime.load_settings("NeyTools.sublime-settings")
-    NT_PYTHON_BASH = NT_SETTINGS.get("python_use_bash", False) and NT_BASHAVAILABLE
+    GlobalState.load_global_state()
+
+
+class GlobalState():
+    cmd_available = False
+    powershell_available = False
+    pwsh_available = False
+    wsl_available = False
+    windows_terminal_available = False
+
+    plugin_settings = None
+
+    python_use_wsl = False
+
+    @staticmethod
+    def load_global_state():
+        GlobalState.cmd_available = which("cmd") is not None
+        GlobalState.powershell_available = which("powershell") is not None
+        GlobalState.pwsh_available = which("pwsh") is not None
+        GlobalState.wsl_available = which("wsl") is not None
+        GlobalState.windows_terminal_available = which("wt") is not None
+
+        GlobalState.plugin_settings = sublime.load_settings("NeyTools.sublime-settings")
+
+        GlobalState.python_use_wsl = GlobalState.wsl_available and GlobalState.plugin_settings.get("python_use_bash", False)
 
 
 class FormatDict(dict):
@@ -120,18 +129,17 @@ class NeyToolsSettingPythonEnvironmentCommand(sublime_plugin.ApplicationCommand)
     """Used for selecting the Python environment."""
 
     def run(self, env):
-        global NT_PYTHON_BASH
-        NT_PYTHON_BASH = env
-        NT_SETTINGS.set("python_use_bash", NT_PYTHON_BASH)
+        GlobalState.python_use_wsl = env
+        GlobalState.plugin_settings.set("python_use_bash", GlobalState.python_use_wsl)
 
     def is_visible(self, env):
-        return NT_BASHAVAILABLE or not env
+        return GlobalState.wsl_available or not env
 
     def is_enabled(self, env):
-        return NT_BASHAVAILABLE or not env
+        return GlobalState.wsl_available or not env
 
     def is_checked(self, env):
-        return NT_PYTHON_BASH == env
+        return GlobalState.python_use_wsl == env
 
 
 # COMMANDS
@@ -153,7 +161,7 @@ class NeyToolsRunCommand(_NT_CommandBase):
             print("Handler for this systax is not available!", syntax)
 
     def h_python(self):
-        if NT_PYTHON_BASH:
+        if GlobalState.python_use_wsl:
             self.execute_from_here('start bash -c "python3 {filename};echo \\"---------------------\\";read -n 1 -s -r -p \\"Press any key to continue...\\""')
         else:
             self.execute_from_here('start cmd /K "python3 {filename} & pause & exit"')
@@ -180,7 +188,7 @@ class NeyToolsRunPoetryCommand(_NT_CommandBase):
     def run(self, edit):
         self._refresh_poetry()
         if (self.poetry_base_dir is not None) and (self.poetry_project_name is not None):
-            if NT_PYTHON_BASH:
+            if GlobalState.python_use_wsl:
                 self.execute_from('start bash -c "python3 -m poetry run python -m {poetry_project_name};echo \\"---------------------\\";read -n 1 -s -r -p \\"Press any key to continue...\\""', self.poetry_base_dir)
             else:
                 self.execute_from('start cmd /K "python3 -m poetry run python -m {poetry_project_name} & pause & exit"', self.poetry_base_dir)
@@ -240,10 +248,10 @@ class _NTWindowsCommandPromptBase(_NT_CommandBase):
     """The base of all Windows Command Prompt commands."""
 
     def is_visible(self):
-        return NT_CMDAVAILABLE
+        return GlobalState.cmd_available
 
     def is_enabled(self):
-        return NT_CMDAVAILABLE and self.is_ready()
+        return GlobalState.cmd_available and self.is_ready()
 
 
 class NeyToolsOpenCmdCommand(_NTWindowsCommandPromptBase):
@@ -258,10 +266,10 @@ class _NTPowerShellBase(_NT_CommandBase):
     """The base of all Windows PowerShell commands."""
 
     def is_visible(self):
-        return NT_PSAVAILABLE
+        return GlobalState.powershell_available
 
     def is_enabled(self):
-        return NT_PSAVAILABLE and self.is_ready()
+        return GlobalState.powershell_available and self.is_ready()
 
 
 class NeyToolsOpenPowerShellCommand(_NTPowerShellBase):
@@ -276,10 +284,10 @@ class _NTBashBase(_NT_CommandBase):
     """The base of all Bash commands."""
 
     def is_visible(self):
-        return NT_BASHAVAILABLE
+        return GlobalState.wsl_available
 
     def is_enabled(self):
-        return NT_BASHAVAILABLE and self.is_ready()
+        return GlobalState.wsl_available and self.is_ready()
 
 
 class NeyToolsOpenBashCommand(_NTBashBase):
