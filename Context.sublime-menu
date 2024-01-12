@@ -6,7 +6,7 @@
 		"caption": "Open Terminal",
 		"mnemonic": "T",
 		"children": [
-			{ "caption": "Bash", "mnemonic": "B", "command": "ney_tools_open_bash" },
+			{ "caption": "WSL", "mnemonic": "W", "command": "ney_tools_open_wsl" },
 			{ "caption": "Command Prompt", "mnemonic": "C", "command": "ney_tools_open_cmd" },
 			{ "caption": "PowerShell", "mnemonic": "P", "command": "ney_tools_open_power_shell" }
 		]

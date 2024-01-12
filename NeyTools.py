@@ -98,7 +98,7 @@ class __CommandBase(sublime_plugin.TextCommand):
         'wsl': (['wsl'], [';', 'echo', '-e', '----------------------------------------\\nThe program exited with: $?\\nPress any key to continue . . . ', ';', 'read', '-srn1'], []),
         'cmd': (['cmd', '/K'], ['&', 'pause', '&', 'exit'], ['&', 'exit']),
         None: ([], [], [])
-    }
+    }  # idx0: pre-commands, idx1: wait_for_user=True commands, idx2: wait_for_user=False commands
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -271,8 +271,8 @@ class NeyToolsOpenPowerShellCommand(__CommandBase):
         return GlobalState.powershell_available and self.is_ready()
 
 
-class NeyToolsOpenBashCommand(__CommandBase):
-    """Opens a new Bash terminal in the current directory."""
+class NeyToolsOpenWslCommand(__CommandBase):
+    """Opens a new WSL terminal in the current directory."""
 
     def run(self, edit):
         self.execute('wsl', runtime=None)
