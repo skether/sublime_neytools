@@ -1,6 +1,7 @@
 {
-   "*": {
-      ">=3000": [
+   "$schema": "sublime://packagecontrol.io/schemas/dependencies",
+   "windows": {
+      ">=4000": [
          "pathlib",
          "python-toml"
       ]
