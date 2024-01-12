@@ -1,4 +1,5 @@
-import os
+import itertools
+import subprocess
 from pathlib import Path
 from shutil import which
 
@@ -48,6 +49,24 @@ class GlobalState():
         GlobalState.python_use_wsl = GlobalState.wsl_available and GlobalState.plugin_settings.get("python_use_bash", False)
 
 
+# SETTING COMMANDS
+class NeyToolsSettingPythonEnvironmentCommand(sublime_plugin.ApplicationCommand):
+    """Used for selecting the Python environment."""
+
+    def run(self, env):
+        GlobalState.python_use_wsl = env
+        GlobalState.plugin_settings.set("python_use_bash", GlobalState.python_use_wsl)
+
+    def is_visible(self, env):
+        return GlobalState.wsl_available or not env
+
+    def is_enabled(self, env):
+        return GlobalState.wsl_available or not env
+
+    def is_checked(self, env):
+        return GlobalState.python_use_wsl == env
+
+
 class FormatDict(dict):
     def __init__(self, *args, command_instance, **kwargs):
         super().__init__(*args, **kwargs)
@@ -72,50 +91,56 @@ class FormatDict(dict):
                 raise e
 
 
-# Base Class for TextCommands
-class _NT_CommandBase(sublime_plugin.TextCommand):
-    """The base of all NeyTools Text commands."""
+# New generation base class
+class __CommandBase(sublime_plugin.TextCommand):
+    """ The base of all NeyTools Text commands. """
+    __runtimes__ = {
+        'wsl': (['wsl'], [';', 'echo', '-e', '----------------------------------------\\nThe program exited with: $?\\nPress any key to continue . . . ', ';', 'read', '-srn1'], []),
+        'cmd': (['cmd', '/K'], ['&', 'pause', '&', 'exit'], ['&', 'exit']),
+        None: ([], [], [])
+    }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.format_dict = FormatDict(command_instance=self)
-        self._refresh_path_components()
+        self.__refresh_path_components()
 
-    def execute(self, command):
-        # If the current document is dirty then save it.
+    def execute(self, *command, runtime=None, path=None, wait_for_user=True):
         if self.view.is_dirty():
             self.view.run_command("save")
 
-        # Refresh the path
-        self._refresh_path_components()
+        if not self.is_ready():
+            self.__refresh_path_components()
 
-        os.system(self._format_command(command))
+        if path is None:
+            path = self.filepath.parent
 
-    def execute_from(self, command, path):
-        command = path.drive + ' & cd "' + str(path) + '" & ' + command
-        self.execute(command)
+        runtime_args = self.__runtimes__.get(runtime, None)
+        if runtime_args is None:
+            raise ValueError(f"{runtime} is an invalid runtime!")
 
-    def execute_from_here(self, command):
-        self.execute_from(command, self.filepath.parent)
+        args = list(itertools.chain(runtime_args[0], self.__format_command(command), runtime_args[1] if wait_for_user else runtime_args[2]))
+        subprocess.Popen(args, cwd=path)
 
     def is_ready(self):
-        return not not self.filepath
+        return bool(self.filepath)
 
-    def _refresh_path_components(self):
+    def __refresh_path_components(self):
         file_name = self.view.file_name()
         self.filepath = Path(file_name) if file_name else None
 
-    def _format_command(self, command):
-        return command.format_map(self.format_dict)
+    def __format_command(self, command):
+        if isinstance(command, tuple) or isinstance(command, list):
+            return (arg.format_map(self.format_dict) for arg in command)
+        raise TypeError("command is not intance of str or list")
 
 
 # For Development Purposes
-class NeyToolsDebugTriggerCommand(_NT_CommandBase):
+class NeyToolsDebugTriggerCommand(__CommandBase):
     """Used for triggering the base class, while in developement."""
 
     def run(self, edit):
         print("NeyTools Debug")
-        self.execute("exit")
 
     def is_visible(self):
         return NT_DEVMODE
@@ -124,33 +149,16 @@ class NeyToolsDebugTriggerCommand(_NT_CommandBase):
         return NT_DEVMODE
 
 
-# SETTING COMMANDS
-class NeyToolsSettingPythonEnvironmentCommand(sublime_plugin.ApplicationCommand):
-    """Used for selecting the Python environment."""
-
-    def run(self, env):
-        GlobalState.python_use_wsl = env
-        GlobalState.plugin_settings.set("python_use_bash", GlobalState.python_use_wsl)
-
-    def is_visible(self, env):
-        return GlobalState.wsl_available or not env
-
-    def is_enabled(self, env):
-        return GlobalState.wsl_available or not env
-
-    def is_checked(self, env):
-        return GlobalState.python_use_wsl == env
-
-
 # COMMANDS
-class NeyToolsRunCommand(_NT_CommandBase):
+class NeyToolsRunCommand(__CommandBase):
     """Used for intelligenly running the current document."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._syntaxHandlers = {}
-        self._syntaxHandlers["Packages/Python/Python.sublime-syntax"] = self.h_python
-        self._syntaxHandlers["Packages/PowerShell/Support/PowershellSyntax.tmLanguage"] = self.h_powershell
+        self._syntaxHandlers = {
+            'Packages/Python/Python.sublime-syntax': self.h_python,
+            'Packages/PowerShell/Support/PowershellSyntax.tmLanguage': self.h_powershell
+        }
 
     def run(self, edit):
         syntax = self.view.settings().get("syntax")
@@ -161,13 +169,10 @@ class NeyToolsRunCommand(_NT_CommandBase):
             print("Handler for this systax is not available!", syntax)
 
     def h_python(self):
-        if GlobalState.python_use_wsl:
-            self.execute_from_here('start bash -c "python3 {filename};echo \\"---------------------\\";read -n 1 -s -r -p \\"Press any key to continue...\\""')
-        else:
-            self.execute_from_here('start cmd /K "python3 {filename} & pause & exit"')
+        self.execute('python3', '{filename}', runtime='wsl' if GlobalState.python_use_wsl else 'cmd')
 
     def h_powershell(self):
-        self.execute_from_here('start cmd /K "powershell ./{filename} & pause & exit"')
+        self.execute('powershell', './{filename}', runtime='cmd')
 
     def is_visible(self):
         return self.view.settings().get("syntax") in self._syntaxHandlers and self.is_ready()
@@ -176,24 +181,21 @@ class NeyToolsRunCommand(_NT_CommandBase):
         return self.view.settings().get("syntax") in self._syntaxHandlers and self.is_ready()
 
 
-class NeyToolsRunPoetryCommand(_NT_CommandBase):
+class NeyToolsRunPoetryCommand(__CommandBase):
     """Used for running the current Poetry Project"""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.poetry_base_dir = None
         self.poetry_project_name = None
-        self._refresh_poetry()
+        self.__refresh_poetry()
 
     def run(self, edit):
-        self._refresh_poetry()
+        self.__refresh_poetry()
         if (self.poetry_base_dir is not None) and (self.poetry_project_name is not None):
-            if GlobalState.python_use_wsl:
-                self.execute_from('start bash -c "python3 -m poetry run python -m {poetry_project_name};echo \\"---------------------\\";read -n 1 -s -r -p \\"Press any key to continue...\\""', self.poetry_base_dir)
-            else:
-                self.execute_from('start cmd /K "python3 -m poetry run python -m {poetry_project_name} & pause & exit"', self.poetry_base_dir)
+            self.execute('poetry', 'run', 'python', '-m', '{poetry_project_name}', path=self.poetry_base_dir, runtime='wsl' if GlobalState.python_use_wsl else 'cmd')
 
-    def _refresh_poetry(self):
+    def __refresh_poetry(self):
         if not self.filepath:
             return
 
@@ -243,9 +245,11 @@ class NeyToolsRunPoetryCommand(_NT_CommandBase):
         return self.is_ready() and (self.poetry_base_dir is not None) and (self.poetry_project_name is not None)
 
 
-# Windows Tools (Windows Command Prompt)
-class _NTWindowsCommandPromptBase(_NT_CommandBase):
-    """The base of all Windows Command Prompt commands."""
+class NeyToolsOpenCmdCommand(__CommandBase):
+    """Opens a new Windows Command Prompt in the current directory."""
+
+    def run(self, edit):
+        self.execute('cmd', runtime=None)
 
     def is_visible(self):
         return GlobalState.cmd_available
@@ -254,16 +258,11 @@ class _NTWindowsCommandPromptBase(_NT_CommandBase):
         return GlobalState.cmd_available and self.is_ready()
 
 
-class NeyToolsOpenCmdCommand(_NTWindowsCommandPromptBase):
-    """Opens a new Windows Command Prompt in the current directory."""
+class NeyToolsOpenPowerShellCommand(__CommandBase):
+    """Opens a new PowerShell terminal in the current directory."""
 
     def run(self, edit):
-        self.execute_from_here("start cmd")
-
-
-# Windows Tools (PowerShell)
-class _NTPowerShellBase(_NT_CommandBase):
-    """The base of all Windows PowerShell commands."""
+        self.execute('powershell', runtime=None)
 
     def is_visible(self):
         return GlobalState.powershell_available
@@ -272,26 +271,14 @@ class _NTPowerShellBase(_NT_CommandBase):
         return GlobalState.powershell_available and self.is_ready()
 
 
-class NeyToolsOpenPowerShellCommand(_NTPowerShellBase):
-    """Opens a new PowerShell terminal in the current directory."""
+class NeyToolsOpenBashCommand(__CommandBase):
+    """Opens a new Bash terminal in the current directory."""
 
     def run(self, edit):
-        self.execute_from_here("start powershell")
-
-
-# Linux Tools (Bash - Windows Subsystem for Linux)
-class _NTBashBase(_NT_CommandBase):
-    """The base of all Bash commands."""
+        self.execute('wsl', runtime=None)
 
     def is_visible(self):
         return GlobalState.wsl_available
 
     def is_enabled(self):
         return GlobalState.wsl_available and self.is_ready()
-
-
-class NeyToolsOpenBashCommand(_NTBashBase):
-    """Opens a new Bash terminal in the current directory."""
-
-    def run(self, edit):
-        self.execute_from_here("start bash")
