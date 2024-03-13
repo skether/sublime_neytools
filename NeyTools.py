@@ -1,3 +1,4 @@
+import base64
 import itertools
 import re
 import shlex
@@ -78,6 +79,8 @@ class FormatDict(dict):
             "filepath": lambda: self.command_instance.filepath,
             "drive": lambda: self.command_instance.filepath.drive,
             "directory": lambda: self.command_instance.filepath.parent,
+            "file_text": lambda: self.command_instance.view.substr(sublime.Region(0, self.command_instance.view.size())),
+            "file_text_base64": lambda: base64.b64encode(self.command_instance.view.substr(sublime.Region(0, self.command_instance.view.size())).encode(self.command_instance.view.encoding())).decode('utf-8'),
         }
 
     def __getitem__(self, key):
