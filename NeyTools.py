@@ -80,7 +80,7 @@ class FormatDict(dict):
             "drive": lambda: self.command_instance.filepath.drive,
             "directory": lambda: self.command_instance.filepath.parent,
             "file_text": lambda: self.command_instance.view.substr(sublime.Region(0, self.command_instance.view.size())),
-            "file_text_base64": lambda: base64.b64encode(self.command_instance.view.substr(sublime.Region(0, self.command_instance.view.size())).encode(self.command_instance.view.encoding())).decode('utf-8'),
+            "file_text_base64": lambda: base64.b64encode(self.command_instance.view.substr(sublime.Region(0, self.command_instance.view.size())).encode(self.command_instance.view.encoding().replace('Undefined', 'utf-8'))).decode('utf-8'),
         }
 
     def __getitem__(self, key):
