@@ -1,4 +1,6 @@
 import itertools
+import re
+import shlex
 import subprocess
 from pathlib import Path
 from shutil import which
@@ -115,6 +117,9 @@ class __CommandBase(sublime_plugin.TextCommand):
         if path is None:
             path = self.filepath.parent
 
+        if override_runtime := self._get_override('global_runtime'):
+            runtime = override_runtime
+
         runtime_args = self.__runtimes__.get(runtime, None)
         if runtime_args is None:
             raise ValueError(f"{runtime} is an invalid runtime!")
@@ -124,6 +129,24 @@ class __CommandBase(sublime_plugin.TextCommand):
 
     def is_ready(self):
         return bool(self.filepath)
+
+    def _get_override(self, property_name):
+        for row in range(0, 100):  # Using for instead of while for cheap insurance against runaway situations.
+            textpoint = self.view.text_point(row=row, col=0)
+
+            if textpoint >= self.view.size():
+                break
+
+            region = self.view.line(textpoint)
+            line = self.view.substr(region)
+
+            match = re.fullmatch(r"# ?nt:(?P<property_name>\w+)( (?P<property_arguments>.*))?", line)
+            if match:
+                if match.group('property_name') == property_name:
+                    return match.group('property_arguments')
+            elif row != 0:
+                break
+        return None
 
     def __refresh_path_components(self):
         file_name = self.view.file_name()
@@ -161,12 +184,21 @@ class NeyToolsRunCommand(__CommandBase):
         }
 
     def run(self, edit):
+        if override_command := self._get_override('run_command'):
+            self.h_override_command(override_command)
+            return
+
         syntax = self.view.settings().get("syntax")
         handler = self._syntaxHandlers.get(syntax, None)
         if handler:
             handler()
         else:
             print("Handler for this systax is not available!", syntax)
+
+    def h_override_command(self, command):
+        executable, *arguments = shlex.split(command)
+        match = re.fullmatch(r"((?P<runtime>\w+):)?(?P<executable>.+)", executable)
+        self.execute(match.group('executable'), *arguments, runtime=match.group('runtime'))
 
     def h_python(self):
         self.execute('python3', '{filename}', runtime='wsl' if GlobalState.python_use_wsl else 'cmd')
@@ -175,10 +207,10 @@ class NeyToolsRunCommand(__CommandBase):
         self.execute('powershell', './{filename}', runtime='cmd')
 
     def is_visible(self):
-        return self.view.settings().get("syntax") in self._syntaxHandlers and self.is_ready()
+        return (self.view.settings().get("syntax") in self._syntaxHandlers or bool(self._get_override('run_command'))) and self.is_ready()
 
     def is_enabled(self):
-        return self.view.settings().get("syntax") in self._syntaxHandlers and self.is_ready()
+        return (self.view.settings().get("syntax") in self._syntaxHandlers or bool(self._get_override('run_command'))) and self.is_ready()
 
 
 class NeyToolsRunPoetryCommand(__CommandBase):
