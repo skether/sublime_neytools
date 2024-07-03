@@ -1,5 +1,6 @@
 import base64
 import itertools
+import os
 import re
 import shlex
 import subprocess
@@ -11,6 +12,8 @@ import sublime
 import sublime_plugin
 
 import toml
+
+import yaml
 
 
 # For Development Purposes
@@ -110,7 +113,7 @@ class __CommandBase(sublime_plugin.TextCommand):
         self.format_dict = FormatDict(command_instance=self)
         self.__refresh_path_components()
 
-    def execute(self, *command, runtime=None, path=None, wait_for_user=True):
+    def execute(self, *command, extra_env=None, runtime=None, path=None, wait_for_user=True):
         if self.view.is_dirty():
             self.view.run_command("save")
 
@@ -127,8 +130,12 @@ class __CommandBase(sublime_plugin.TextCommand):
         if runtime_args is None:
             raise ValueError(f"{runtime} is an invalid runtime!")
 
+        env = os.environ
+        if extra_env:
+            env.update(extra_env)
+
         args = list(itertools.chain(runtime_args[0], self.__format_command(command), runtime_args[1] if wait_for_user else runtime_args[2]))
-        subprocess.Popen(args, cwd=path)
+        subprocess.Popen(args, cwd=path, env=env)
 
     def is_ready(self):
         return bool(self.filepath)
@@ -228,7 +235,17 @@ class NeyToolsRunPoetryCommand(__CommandBase):
     def run(self, edit):
         self.__refresh_poetry()
         if (self.poetry_base_dir is not None) and (self.poetry_project_name is not None):
-            self.execute('poetry', 'run', 'python', '-m', '{poetry_project_name}', path=self.poetry_base_dir, runtime='wsl' if GlobalState.python_use_wsl else 'cmd')
+            extra_args = []
+            extra_env = {}
+
+            arguments_file = self.poetry_base_dir.joinpath('neytools_run.yml')
+            if arguments_file.exists():
+                with arguments_file.open('rt') as f:
+                    content = yaml.safe_load(f)
+                    extra_args = content.get('args', [])
+                    extra_env = content.get('env', {})
+
+            self.execute('poetry', 'run', 'python', '-m', '{poetry_project_name}', *extra_args, extra_env=extra_env, path=self.poetry_base_dir, runtime='wsl' if GlobalState.python_use_wsl else 'cmd')
 
     def __refresh_poetry(self):
         if not self.filepath:

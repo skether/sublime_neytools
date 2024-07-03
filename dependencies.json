@@ -3,7 +3,8 @@
    "windows": {
       ">=4000": [
          "pathlib",
-         "python-toml"
+         "python-toml",
+         "pyyaml"
       ]
    }
 }
