@@ -33,9 +33,13 @@ def plugin_loaded():
 
 class GlobalState():
     cmd_available = False
+
     powershell_available = False
     pwsh_available = False
+    powershell_use_pwsh = False
+
     wsl_available = False
+
     windows_terminal_available = False
 
     plugin_settings = None
@@ -52,25 +56,49 @@ class GlobalState():
 
         GlobalState.plugin_settings = sublime.load_settings("NeyTools.sublime-settings")
 
-        GlobalState.python_use_wsl = GlobalState.wsl_available and GlobalState.plugin_settings.get("python_use_bash", False)
+        GlobalState.python_use_wsl = GlobalState.wsl_available and GlobalState.plugin_settings.get("python_use_wsl", "native") == "wsl"
+        GlobalState.powershell_use_pwsh = GlobalState.pwsh_available and GlobalState.plugin_settings.get("powershell_prefer_pwsh", "powershell") == "pwsh"
+
+    @staticmethod
+    def save_plugin_settings():
+        sublime.save_settings("NeyTools.sublime-settings")
 
 
 # SETTING COMMANDS
 class NeyToolsSettingPythonEnvironmentCommand(sublime_plugin.ApplicationCommand):
-    """Used for selecting the Python environment."""
+    """ Used for selecting the Python environment. """
 
     def run(self, env):
-        GlobalState.python_use_wsl = env
-        GlobalState.plugin_settings.set("python_use_bash", GlobalState.python_use_wsl)
+        GlobalState.python_use_wsl = env == "wsl"
+        GlobalState.plugin_settings.set("python_use_wsl", GlobalState.python_use_wsl)
+        GlobalState.save_plugin_settings()
 
     def is_visible(self, env):
-        return GlobalState.wsl_available or not env
+        return GlobalState.wsl_available or not (env == "wsl")
 
     def is_enabled(self, env):
-        return GlobalState.wsl_available or not env
+        return GlobalState.wsl_available or not (env == "wsl")
 
     def is_checked(self, env):
-        return GlobalState.python_use_wsl == env
+        return GlobalState.python_use_wsl == (env == "wsl")
+
+
+class NeyToolsSettingPowerShellEnvironmentCommand(sublime_plugin.ApplicationCommand):
+    """ Used for selecting the PowerShell environment. """
+
+    def run(self, env):
+        GlobalState.powershell_use_pwsh = (env == "pwsh")
+        GlobalState.plugin_settings.set("powershell_prefer_pwsh", GlobalState.powershell_use_pwsh)
+        GlobalState.save_plugin_settings()
+
+    def is_visible(self, env):
+        return GlobalState.pwsh_available or not (env == "pwsh")
+
+    def is_enabled(self, env):
+        return GlobalState.pwsh_available or not (env == "pwsh")
+
+    def is_checked(self, env):
+        return GlobalState.powershell_use_pwsh == (env == "pwsh")
 
 
 class FormatDict(dict):
@@ -190,7 +218,8 @@ class NeyToolsRunCommand(__CommandBase):
         super().__init__(*args, **kwargs)
         self._syntaxHandlers = {
             'Packages/Python/Python.sublime-syntax': self.h_python,
-            'Packages/PowerShell/Support/PowershellSyntax.tmLanguage': self.h_powershell
+            'Packages/PowerShell/PowerShell.sublime-syntax': self.h_powershell,
+            'Packages/PowerShell/Support/PowershellSyntax.tmLanguage': self.h_powershell,
         }
 
     def run(self, edit):
@@ -214,7 +243,7 @@ class NeyToolsRunCommand(__CommandBase):
         self.execute('python3', '{filename}', runtime='wsl' if GlobalState.python_use_wsl else 'cmd')
 
     def h_powershell(self):
-        self.execute('powershell', './{filename}', runtime='cmd')
+        self.execute('pwsh' if GlobalState.powershell_use_pwsh else 'powershell', './{filename}', runtime='cmd')
 
     def is_visible(self):
         return (self.view.settings().get("syntax") in self._syntaxHandlers or bool(self._get_override('run_command'))) and self.is_ready()
@@ -314,7 +343,7 @@ class NeyToolsOpenPowerShellCommand(__CommandBase):
     """Opens a new PowerShell terminal in the current directory."""
 
     def run(self, edit):
-        self.execute('powershell', runtime=None)
+        self.execute('pwsh' if GlobalState.powershell_use_pwsh else 'powershell', runtime=None)
 
     def is_visible(self):
         return GlobalState.powershell_available

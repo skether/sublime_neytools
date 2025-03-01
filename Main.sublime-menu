@@ -9,8 +9,15 @@
 					{
 						"caption": "Python",
 						"children": [
-							{ "caption": "Bash", "command": "ney_tools_setting_python_environment", "args": {"env": true} },
-							{ "caption": "Windows", "command": "ney_tools_setting_python_environment", "args": {"env": false} }
+							{ "caption": "Native", "command": "ney_tools_setting_python_environment", "args": {"env": "native"} },
+							{ "caption": "WSL", "command": "ney_tools_setting_python_environment", "args": {"env": "wsl"} }
+						]
+					},
+					{
+						"caption": "PowerShell",
+						"children": [
+							{"caption": "PowerShell", "command": "ney_tools_setting_power_shell_environment", "args": {"env": "powershell"}},
+							{"caption": "pwsh", "command": "ney_tools_setting_power_shell_environment", "args": {"env": "pwsh"}}
 						]
 					}
 				]
