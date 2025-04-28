@@ -112,6 +112,7 @@ class FormatDict(dict):
             "directory": lambda: self.command_instance.filepath.parent,
             "file_text": lambda: self.command_instance.view.substr(sublime.Region(0, self.command_instance.view.size())),
             "file_text_base64": lambda: base64.b64encode(self.command_instance.view.substr(sublime.Region(0, self.command_instance.view.size())).encode(self.command_instance.view.encoding().replace('Undefined', 'utf-8'))).decode('utf-8'),
+            "git_root": lambda: self.command_instance._get_git_root(),
         }
 
     def __getitem__(self, key):
@@ -139,6 +140,7 @@ class __CommandBase(sublime_plugin.TextCommand):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.format_dict = FormatDict(command_instance=self)
+        self.git_root = None
         self.__refresh_path_components()
 
     def execute(self, *command, extra_env=None, runtime=None, path=None, wait_for_user=True):
@@ -186,9 +188,22 @@ class __CommandBase(sublime_plugin.TextCommand):
                 break
         return None
 
+    def _get_git_root(self):
+        if self.git_root is None:
+            self.__find_git_root()
+        return self.git_root
+
     def __refresh_path_components(self):
         file_name = self.view.file_name()
         self.filepath = Path(file_name) if file_name else None
+
+    def __find_git_root(self):
+        for root_candidate in Path(self.view.file_name()).parents:
+            if root_candidate.joinpath('.git').exists():
+                break
+        else:
+            root_candidate = "NO_GIT_ROOT"
+        self.git_root = root_candidate
 
     def __format_command(self, command):
         if isinstance(command, tuple) or isinstance(command, list):
