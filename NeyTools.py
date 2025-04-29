@@ -106,13 +106,18 @@ class FormatDict(dict):
         super().__init__(*args, **kwargs)
         self.command_instance = command_instance
         self.proxies = {
-            "filename": lambda: self.command_instance.filepath.name,
-            "filepath": lambda: self.command_instance.filepath,
-            "drive": lambda: self.command_instance.filepath.drive,
-            "directory": lambda: self.command_instance.filepath.parent,
+            "directory": lambda: self.command_instance.file_path.parent,
+            "drive": lambda: self.command_instance.file_path.drive,
+
+            "filename": lambda: self.command_instance.file_path.name,
+            "filepath": lambda: self.command_instance.file_path,
+            "file_name": lambda: self.command_instance.file_path.name,
+            "file_path": lambda: self.command_instance.file_path,
+
             "file_text": lambda: self.command_instance.view.substr(sublime.Region(0, self.command_instance.view.size())),
             "file_text_base64": lambda: base64.b64encode(self.command_instance.view.substr(sublime.Region(0, self.command_instance.view.size())).encode(self.command_instance.view.encoding().replace('Undefined', 'utf-8'))).decode('utf-8'),
-            "git_root": lambda: self.command_instance._get_git_root(),
+
+            "git_root": lambda: self.command_instance.git_root,
         }
 
     def __getitem__(self, key):
@@ -128,7 +133,6 @@ class FormatDict(dict):
                 raise e
 
 
-# New generation base class
 class __CommandBase(sublime_plugin.TextCommand):
     """ The base of all NeyTools Text commands. """
     __runtimes__ = {
@@ -139,19 +143,36 @@ class __CommandBase(sublime_plugin.TextCommand):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.format_dict = FormatDict(command_instance=self)
-        self.git_root = None
-        self.__refresh_path_components()
+        self.__format_dict = FormatDict(command_instance=self)
+        self.__file_path = None
+        self.__git_root = None
+
+    @property
+    def file_path(self):
+        if (self.__file_path is None) and (fp:= self.view.file_name()):
+            self.__file_path = Path(fp)
+        return self.__file_path
+
+    @property
+    def git_root(self):
+        if self.__git_root is None:
+            for root_candidate in self.file_path.parents:
+                if root_candidate.joinpath('.git').exists():
+                    break
+            else:
+                root_candidate = "NO_GIT_ROOT"
+            self.__git_root = root_candidate
+        return self.__git_root
 
     def execute(self, *command, extra_env=None, runtime=None, path=None, wait_for_user=True):
         if self.view.is_dirty():
             self.view.run_command("save")
 
         if not self.is_ready():
-            self.__refresh_path_components()
+            return
 
         if path is None:
-            path = self.filepath.parent
+            path = self.file_path.parent
 
         if override_runtime := self._get_override('global_runtime'):
             runtime = override_runtime
@@ -168,7 +189,7 @@ class __CommandBase(sublime_plugin.TextCommand):
         subprocess.Popen(args, cwd=path, env=env)
 
     def is_ready(self):
-        return bool(self.filepath)
+        return bool(self.file_path)
 
     def _get_override(self, property_name):
         for row in range(0, 100):  # Using for instead of while for cheap insurance against runaway situations.
@@ -180,7 +201,7 @@ class __CommandBase(sublime_plugin.TextCommand):
             region = self.view.line(textpoint)
             line = self.view.substr(region)
 
-            match = re.fullmatch(r"# ?nt:(?P<property_name>\w+)( (?P<property_arguments>.*))?", line)
+            match = re.fullmatch(r"(?:#|\/\/) ?nt:(?P<property_name>\w+)(?: (?P<property_arguments>.*))?", line)
             if match:
                 if match.group('property_name') == property_name:
                     return match.group('property_arguments')
@@ -188,26 +209,9 @@ class __CommandBase(sublime_plugin.TextCommand):
                 break
         return None
 
-    def _get_git_root(self):
-        if self.git_root is None:
-            self.__find_git_root()
-        return self.git_root
-
-    def __refresh_path_components(self):
-        file_name = self.view.file_name()
-        self.filepath = Path(file_name) if file_name else None
-
-    def __find_git_root(self):
-        for root_candidate in Path(self.view.file_name()).parents:
-            if root_candidate.joinpath('.git').exists():
-                break
-        else:
-            root_candidate = "NO_GIT_ROOT"
-        self.git_root = root_candidate
-
     def __format_command(self, command):
         if isinstance(command, tuple) or isinstance(command, list):
-            return (arg.format_map(self.format_dict) for arg in command)
+            return (arg.format_map(self.__format_dict) for arg in command)
         raise TypeError("command is not intance of str or list")
 
 
@@ -255,10 +259,10 @@ class NeyToolsRunCommand(__CommandBase):
         self.execute(match.group('executable'), *arguments, runtime=match.group('runtime'))
 
     def h_python(self):
-        self.execute('python3', '{filename}', runtime='wsl' if GlobalState.python_use_wsl else 'cmd')
+        self.execute('python3', '{file_name}', runtime='wsl' if GlobalState.python_use_wsl else 'cmd')
 
     def h_powershell(self):
-        self.execute('pwsh' if GlobalState.powershell_use_pwsh else 'powershell', './{filename}', runtime='cmd')
+        self.execute('pwsh' if GlobalState.powershell_use_pwsh else 'powershell', './{file_name}', runtime='cmd')
 
     def is_visible(self):
         return (self.view.settings().get("syntax") in self._syntaxHandlers or bool(self._get_override('run_command'))) and self.is_ready()
@@ -292,11 +296,11 @@ class NeyToolsRunPoetryCommand(__CommandBase):
             self.execute('poetry', 'run', 'python', '-m', '{poetry_project_name}', *extra_args, extra_env=extra_env, path=self.poetry_base_dir, runtime='wsl' if GlobalState.python_use_wsl else 'cmd')
 
     def __refresh_poetry(self):
-        if not self.filepath:
+        if not self.file_path:
             return
 
         # Currently open file's path
-        current_file_name = self.filepath.absolute()
+        current_file_name = self.file_path.absolute()
 
         # Get currently open folders in this window
         open_folders = [Path(p).absolute() for p in self.view.window().folders()]
