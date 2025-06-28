@@ -1,0 +1,2 @@
+- filter: '*.txt_ex'
+  run_command: 'cmd:python3 test.py {file_text_base64} {git_root}'

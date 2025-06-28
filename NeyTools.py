@@ -149,7 +149,7 @@ class __CommandBase(sublime_plugin.TextCommand):
 
     @property
     def file_path(self):
-        if (self.__file_path is None) and (fp:= self.view.file_name()):
+        if (self.__file_path is None) and (fp := self.view.file_name()):
             self.__file_path = Path(fp)
         return self.__file_path
 
@@ -191,7 +191,15 @@ class __CommandBase(sublime_plugin.TextCommand):
     def is_ready(self):
         return bool(self.file_path)
 
-    def _get_override(self, property_name):
+    def __parse_property_line(self, line):
+        match = re.fullmatch(r"(?:#|\/\/) ?nt:(?P<property_name>\w+)(?: (?P<property_arguments>.*))?", line)
+
+        if not match:
+            return (None, None)
+
+        return (match.group('property_name'), match.group('property_arguments'))
+
+    def __get_override_from_annotation(self, property_name):
         for row in range(0, 100):  # Using for instead of while for cheap insurance against runaway situations.
             textpoint = self.view.text_point(row=row, col=0)
 
@@ -201,13 +209,70 @@ class __CommandBase(sublime_plugin.TextCommand):
             region = self.view.line(textpoint)
             line = self.view.substr(region)
 
-            match = re.fullmatch(r"(?:#|\/\/) ?nt:(?P<property_name>\w+)(?: (?P<property_arguments>.*))?", line)
-            if match:
-                if match.group('property_name') == property_name:
-                    return match.group('property_arguments')
-            elif row != 0:
+            prop_name, prop_args = self.__parse_property_line(line)
+
+            if prop_name == property_name:
+                return prop_args
+            elif prop_name is None and row != 0:
                 break
+
         return None
+
+    def __get_override_from_config_file(self, property_name):
+        if not self.file_path:
+            return
+
+        # Currently open file's path
+        current_file_name = self.file_path.absolute()
+
+        # Get currently open folders in this window
+        open_folders = [Path(p).absolute() for p in self.view.window().folders()]
+
+        # Find closest open parent folder in open folders
+        best_relative_path = None
+        best_relative_base_components_count = 0
+        for base_folder in open_folders:
+            relative_path = None
+            try:
+                relative_path = current_file_name.relative_to(base_folder)
+            except ValueError:
+                relative_path = None
+            if relative_path is not None and best_relative_base_components_count < len(base_folder.parts):
+                best_relative_base_components_count = len(base_folder.parts)
+                best_relative_path = (base_folder, relative_path)
+
+        # print(f"{best_relative_path=}")
+        # print(f"{best_relative_base_components_count=}")
+
+        if best_relative_path is None:
+            return None
+
+        # Recursively check for neytools config file
+        override_config_file = None
+        for folder in (best_relative_path[0].joinpath(p) for p in best_relative_path[1].parents):
+            config_file = folder.joinpath(".neytools.yml")
+            if config_file.exists():
+                override_config_file = config_file
+                break
+
+        # print(f"{override_config_file=}")
+
+        if override_config_file is None:
+            return None
+
+        with override_config_file.open('rt') as f:
+            override_configs = yaml.safe_load(f)
+
+        for config in override_configs:
+            if self.file_path.match(str(override_config_file.parent.joinpath(config['filter']))) and (value := config.get(property_name, None)) is not None:
+                return value
+
+        return None
+
+    def _get_override(self, property_name):
+        if (prop := self.__get_override_from_annotation(property_name)) is not None:
+            return prop
+        return self.__get_override_from_config_file(property_name)
 
     def __format_command(self, command):
         if isinstance(command, tuple) or isinstance(command, list):
