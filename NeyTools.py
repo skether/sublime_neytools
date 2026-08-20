@@ -8,13 +8,9 @@ from pathlib import Path
 from shutil import which
 
 import sublime
-
 import sublime_plugin
-
 import toml
-
 import yaml
-
 
 # For Development Purposes
 # Used to enable logging and development tools
@@ -56,8 +52,8 @@ class GlobalState():
 
         GlobalState.plugin_settings = sublime.load_settings("NeyTools.sublime-settings")
 
-        GlobalState.python_use_wsl = GlobalState.wsl_available and GlobalState.plugin_settings.get("python_use_wsl", "native") == "wsl"
-        GlobalState.powershell_use_pwsh = GlobalState.pwsh_available and GlobalState.plugin_settings.get("powershell_prefer_pwsh", "powershell") == "pwsh"
+        GlobalState.python_use_wsl = GlobalState.wsl_available and (GlobalState.plugin_settings.get("python_use_wsl", "native") == "wsl")
+        GlobalState.powershell_use_pwsh = GlobalState.pwsh_available and (GlobalState.plugin_settings.get("powershell_prefer_pwsh", False))
 
     @staticmethod
     def save_plugin_settings():
@@ -133,13 +129,127 @@ class FormatDict(dict):
                 raise e
 
 
+class Runtime():
+    __registry = {}
+
+    fallback_runtime = None
+
+    def __init_subclass__(cls, *args, name, **kwargs):
+        super().__init_subclass__(*args, **kwargs)
+        if isinstance(name, str):
+            Runtime.__registry[name] = cls
+        else:
+            for n in (str(n).lower() for n in name):
+                Runtime.__registry[n] = cls
+
+    def __init__(self):
+        if type(self) == Runtime:
+            raise TypeError("The base Runtime class should not be instantiated! Use a valid subclass instead!")
+        self.type = self.__registry[type(self)]
+
+    @staticmethod
+    def get_by_name(name):
+        name = str(name).lower()
+        if name not in Runtime.__registry:
+            raise ValueError(f"{name} is an invalid Runtime type!")
+        runtime = Runtime.__registry[name]
+        if not runtime.enabled():
+            raise ValueError(f"Runtime of type ({name}) is not enabled!")
+        return Runtime.__registry[name]
+
+    @staticmethod
+    def enabled():
+        return True
+
+    @staticmethod
+    def wrap_command(*command, wait_for_user=False):
+        if wait_for_user:
+            print("None Runtime does not support wait_for_user==True, ignoring...")
+        return command
+
+    @classmethod
+    def execute(cls, *command, extra_env=None, path=None, wait_for_user=True):
+        args = cls.wrap_command(*command, wait_for_user=wait_for_user)
+
+        env = os.environ
+        if extra_env:
+            env.update(extra_env)
+
+        print(f"Executing runtime {cls.__name__} with {args=}")
+        subprocess.Popen(args, cwd=path, env=env)
+
+
+class NoneRuntime(Runtime, name='none'):
+    pass
+
+
+class CommandPrompt(Runtime, name='cmd'):
+
+    @staticmethod
+    def enabled():
+        return which('cmd') is not None
+
+    @staticmethod
+    def wrap_command(*command, wait_for_user=True):
+        return list(itertools.chain(
+            ['cmd', '/K'],
+            command,
+            ['&', 'pause'] if wait_for_user else [],
+            ['&', 'exit']
+        ))
+
+
+class WSL(Runtime, name=('wsl', 'bash')):
+
+    @staticmethod
+    def enabled():
+        return which('wsl') is not None
+
+    @staticmethod
+    def wrap_command(*command, wait_for_user=True):
+        return list(itertools.chain(
+            ['wsl'],
+            command,
+            [';', 'echo', '-e', '----------------------------------------\\nThe program exited with: $?\\nPress any key to continue . . . ', ';', 'read', '-srn1'] if wait_for_user else []
+        ))
+
+
+class PowerShell5(Runtime, name=('powershell5', 'ps5')):
+
+    @staticmethod
+    def enabled():
+        return which('powershell') is not None
+
+    @staticmethod
+    def wrap_command(*command, wait_for_user=True):
+        return ['powershell', '-EncodedCommand', base64.b64encode((' '.join(command) + '; pause' if wait_for_user else '').encode('utf-16-le')).decode('utf-8')]
+
+
+class PWSH(Runtime, name='pwsh'):
+
+    @staticmethod
+    def enabled():
+        return which('pwsh') is not None
+
+    @staticmethod
+    def wrap_command(*command, wait_for_user=True):
+        return ['pwsh', '-EncodedCommand', base64.b64encode((' '.join(command) + '; pause' if wait_for_user else '').encode('utf-16-le')).decode('utf-8')]
+
+
+class AutoPowerShell(Runtime, name=('powershell', 'ps')):
+
+    @staticmethod
+    def enabled():
+        return PWSH.enabled() or PowerShell5.enabled()
+
+    @staticmethod
+    def wrap_command(*command, wait_for_user=True):
+        runtime = PWSH if GlobalState.powershell_use_pwsh else PowerShell5
+        return runtime.wrap_command(*command, wait_for_user=wait_for_user)
+
+
 class __CommandBase(sublime_plugin.TextCommand):
     """ The base of all NeyTools Text commands. """
-    __runtimes__ = {
-        'wsl': (['wsl'], [';', 'echo', '-e', '----------------------------------------\\nThe program exited with: $?\\nPress any key to continue . . . ', ';', 'read', '-srn1'], []),
-        'cmd': (['cmd', '/K'], ['&', 'pause', '&', 'exit'], ['&', 'exit']),
-        None: ([], [], [])
-    }  # idx0: pre-commands, idx1: wait_for_user=True commands, idx2: wait_for_user=False commands
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -174,19 +284,11 @@ class __CommandBase(sublime_plugin.TextCommand):
         if path is None:
             path = self.file_path.parent
 
-        if override_runtime := self._get_override('global_runtime'):
+        if (override_runtime := self._get_override('runtime')) or (override_runtime := self._get_override('global_runtime')):
             runtime = override_runtime
 
-        runtime_args = self.__runtimes__.get(runtime, None)
-        if runtime_args is None:
-            raise ValueError(f"{runtime} is an invalid runtime!")
-
-        env = os.environ
-        if extra_env:
-            env.update(extra_env)
-
-        args = list(itertools.chain(runtime_args[0], self.__format_command(command), runtime_args[1] if wait_for_user else runtime_args[2]))
-        subprocess.Popen(args, cwd=path, env=env)
+        runtime = Runtime.get_by_name(runtime)
+        runtime.execute(*self.__format_command(command), extra_env=extra_env, path=path, wait_for_user=wait_for_user)
 
     def is_ready(self):
         return bool(self.file_path)
@@ -286,6 +388,7 @@ class NeyToolsDebugTriggerCommand(__CommandBase):
 
     def run(self, edit):
         print("NeyTools Debug")
+        print(f"{GlobalState.powershell_use_pwsh=}")
 
     def is_visible(self):
         return NT_DEVMODE
@@ -324,7 +427,7 @@ class NeyToolsRunCommand(__CommandBase):
         self.execute(match.group('executable'), *arguments, runtime=match.group('runtime'))
 
     def h_python(self):
-        self.execute('python3', '{file_name}', runtime='wsl' if GlobalState.python_use_wsl else 'cmd')
+        self.execute('python3' if GlobalState.python_use_wsl else 'py', '{file_name}', runtime='wsl' if GlobalState.python_use_wsl else 'cmd')
 
     def h_powershell(self):
         self.execute('pwsh' if GlobalState.powershell_use_pwsh else 'powershell', './{file_name}', runtime='cmd')

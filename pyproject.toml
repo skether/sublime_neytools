@@ -1,12 +1,29 @@
-[tool.black]
+[tool.ruff]
 line-length = 300
+indent-width = 4
+exclude = ["**/__pycache__"]
 
-[tool.flakeheaven]
-max_line_length = 300
-exclude = ["__pycache__", ".venv", "docs"]
-# E203: Whitespace before ':'
-ignore = "E203"
-extended_default_ignore=[]
+[tool.ruff.lint]
+preview = true
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # Pyflakes
+    "I",  # isort
+    "N",  # pep8-naming
+    "B",  # flake8-bugbear
+    "A",  # flake8-builtins
+    "C4", # flake8-comprehensions
+    "SIM",# flake8-simplify
+    "UP", # pyupgrade
+    "ANN",
+]
+ignore = ["UP015"]
 
-[tool.flakeheaven.plugins]
-"*" = ["+*"]
+[tool.pyright]
+include = ["*.py"]
+exclude = ["**/__pycache__"]
+typeCheckingMode = "strict"
+reportUnknownMemberType = false
+# venvPath = "."
+# venv = ".venv"

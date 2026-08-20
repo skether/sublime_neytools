@@ -3,6 +3,8 @@
    "windows": {
       ">=4000": [
          "pathlib",
+         "pydantic",
+         "pydantic-core",
          "python-toml",
          "pyyaml"
       ]
