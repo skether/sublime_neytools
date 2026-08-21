@@ -1,3 +1,19 @@
+[project]
+name = "sublime-neytools"
+version = "2.0.0"
+description = "NeyTools for Sublime Text"
+authors = [
+    {name = "skether"}
+]
+requires-python = ">=3.14"
+
+[dependency-groups]
+dev = [
+    "basedpyright>=1.39.10",
+    "ruff>=0.16.4",
+    "sublime-text-stubs>=1.4200.0b2",
+]
+
 [tool.ruff]
 line-length = 300
 indent-width = 4
@@ -20,10 +36,13 @@ select = [
 ]
 ignore = ["UP015"]
 
-[tool.pyright]
-include = ["*.py"]
+[tool.basedpyright]
+pythonVersion = "3.14"
+include = ["."]
 exclude = ["**/__pycache__"]
-typeCheckingMode = "strict"
-reportUnknownMemberType = false
-# venvPath = "."
-# venv = ".venv"
+typeCheckingMode = "basic"
+extraPaths = [
+    "C:/Users/haran/AppData/Roaming/Sublime Text 3/Lib/python314",
+]
+venvPath = "."
+venv = ".venv"

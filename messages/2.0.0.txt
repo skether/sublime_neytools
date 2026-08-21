@@ -1,0 +1,5 @@
+NeyTools 2.0.0
+==============
+
+- Initial setup of the modernized NeyTools package for Sublime Text 4205+.
+- Re-architected for the Python 3.14 module host.

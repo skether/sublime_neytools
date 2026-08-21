@@ -1,10 +1,7 @@
 {
    "$schema": "sublime://packagecontrol.io/schemas/dependencies",
    "windows": {
-      ">=4000": [
-         "pathlib",
-         "pydantic",
-         "pydantic-core",
+      ">=4205": [
          "python-toml",
          "pyyaml"
       ]
