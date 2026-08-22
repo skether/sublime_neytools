@@ -11,7 +11,6 @@ requires-python = ">=3.14"
 dev = [
     "basedpyright>=1.39.10",
     "ruff>=0.16.4",
-    "sublime-text-stubs>=1.4200.0b2",
 ]
 
 [tool.ruff]
@@ -40,9 +39,11 @@ ignore = ["UP015"]
 pythonVersion = "3.14"
 include = ["."]
 exclude = ["**/__pycache__"]
-typeCheckingMode = "basic"
+typeCheckingMode = "recommended"
 extraPaths = [
     "C:/Users/haran/AppData/Roaming/Sublime Text 3/Lib/python314",
+    "C:/Program Files/Sublime Text/Lib/python314",
+    "libs"
 ]
 venvPath = "."
 venv = ".venv"
